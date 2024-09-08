@@ -1,10 +1,10 @@
-import os
-import shutil
+import os, win32com.client, re, time, shutil
 from datetime import datetime
-import time
 from docx import Document
 from deep_translator import GoogleTranslator
-import win32com.client
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from langdetect import detect, DetectorFactory
+DetectorFactory.seed = 0  # Ensure reproducible results
 
 def get_folder_path(args):
     try:
@@ -25,36 +25,113 @@ def merge_text_files(folder_path):
                 with open(file_path, 'r', encoding='utf-8') as file:
                     lines = file.readlines()
                     if lines:
-                        first_line = lines[0].strip()  # First line
-                        remaining_lines = ''.join(line.strip() for line in lines[1:])  # Remaining lines
+                        # Extract the first line and the rest of the lines
+                        first_line = lines[0].strip()
+                        remaining_lines = ''.join(line.strip() for line in lines[1:])
+                        
+                        # Combine the first line with the formatted remaining lines
                         combined_text += f"{first_line}\n{remaining_lines}\n\n"
         return combined_text.strip()
     except Exception as e:
         print(f"Error merging text files: {e}")
         exit(1)
 
-def split_text(text, max_length=5000):
-    chunks = []
-    while len(text) > max_length:
-        split_index = text.rfind('.', 0, max_length)
-        if split_index == -1:
-            split_index = max_length
-        chunks.append(text[:split_index+1])
-        text = text[split_index+1:].strip()
-    chunks.append(text)
-    return chunks
+def remove_sentence_ending_characters(text):
+    """
+    Remove all sentence-ending characters from the given text.
+    """
+    # Create a translation table to remove sentence-ending characters
+    translation_table = str.maketrans('', '', ''.join(SENTENCE_ENDING_CHARACTERS))
+    return text.translate(translation_table)
 
-def translate_text(text_chunks):
-    try:
-        translator = GoogleTranslator(source='auto', target='en')
-        translated_chunks = []
-        for chunk in text_chunks:
-            translated = translator.translate(chunk)
+def is_sentence_numeric(sentence):
+    """
+    Check if a sentence is numeric after removing all sentence-ending characters.
+    """
+    cleaned_sentence = remove_sentence_ending_characters(sentence)
+    return cleaned_sentence.isnumeric()
+
+# Define a list of sentence-ending characters for the languages mentioned
+SENTENCE_ENDING_CHARACTERS = ['.', '!', '?', '۔', '؟', '।', '॥', '؛']
+
+def split_text(text, max_character=5000):
+    # Create a regex pattern to split text based on sentence-ending characters
+    split_pattern = f"(?<=[{''.join(SENTENCE_ENDING_CHARACTERS)}])(?=\s)"
+    
+    # Split text based on the pattern
+    sentences = re.split(split_pattern, text)
+    
+    # Remove any empty strings from the list and strip whitespace
+    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
+    
+    grouped_sentences = []
+    current_group = []
+    current_lang = None
+    current_length = 0
+    detected_languages = []  # List to keep track of detected languages for each group
+
+    for sentence in sentences:
+        # Skip detection for numeric or trivial content
+        if is_sentence_numeric(sentence):
+            detected_lang = current_lang  # Assume it matches the current group if possible
+        else:
+            try:
+                detected_lang = detect(sentence)
+            except Exception as e:
+                print(f"Error detecting language for: {sentence}. Error: {e}")
+                detected_lang = None
+
+        # Check if the sentence can be added to the current group without exceeding max_character
+        if detected_lang == current_lang and (current_length + len(sentence) + 1) <= max_character:
+            # If the language matches and adding the sentence does not exceed max_character
+            current_group.append(sentence)
+            current_length += len(sentence) + 1  # +1 for the space or punctuation that joins sentences
+        else:
+            # If there is a change in language or adding the sentence exceeds max_character
+            if current_group:
+                # Add the current group to the list if it's not empty
+                grouped_sentences.append(' '.join(current_group))
+                detected_languages.append(current_lang)  # Append the detected language for the current group
+            # Start a new group with the new language
+            current_group = [sentence]
+            current_lang = detected_lang
+            current_length = len(sentence) + 1
+
+    # Append the last group if it exists
+    if current_group:
+        grouped_sentences.append(' '.join(current_group))
+        detected_languages.append(current_lang)  # Append the detected language for the last group
+
+    return grouped_sentences, detected_languages
+
+def batch_translate(groups, langs):
+    """
+    Batch translate the given groups of text based on their languages.
+    """
+    translator = GoogleTranslator(source='auto', target='en')
+    translated_chunks = []
+
+    for group, lang in zip(groups, langs):
+        if lang != 'en':  # Only translate non-English text
+            translated = translator.translate(group)
             translated_chunks.append(translated)
-        return ' '.join(translated_chunks)
-    except Exception as e:
-        print(f"Error translating text: {e}")
-        exit(1)
+        else:
+            translated_chunks.append(group)  # Directly append English text without translation
+
+    return ' '.join(translated_chunks)
+
+def parallel_process(groups, langs):
+    """
+    Use parallel threads to process translation faster.
+    """
+    with ThreadPoolExecutor(max_workers=4) as executor:  # Adjust max_workers based on your CPU cores
+        future_to_translation = {executor.submit(batch_translate, [group], [lang]): group for group, lang in zip(groups, langs)}
+
+        results = []
+        for future in as_completed(future_to_translation):
+            results.append(future.result())
+
+    return ' '.join(results)
 
 def create_docx_with_translated_text(template_path, output_path, translated_text):
     try:
@@ -63,27 +140,33 @@ def create_docx_with_translated_text(template_path, output_path, translated_text
         shutil.copy(template_path, output_docx_path)
 
         doc = Document(output_docx_path)
+        
+        # Replace placeholder with translated text
         for paragraph in doc.paragraphs:
             if "{{combinedText}}" in paragraph.text:
-                paragraph.text = paragraph.text.replace("{{combinedText}}", translated_text)
-                paragraph.style = paragraph.style
+                # Use a placeholder to keep the formatting intact
+                for run in paragraph.runs:
+                    if "{{combinedText}}" in run.text:
+                        run.text = run.text.replace("{{combinedText}}", translated_text)
+        
+        # Handle <LEFT> and </LEFT> tags for alignment
+        paragraphs_to_add = []
+        
 
-        # Apply alignment and justification, preserving specific headlines' alignments
-        for para in doc.paragraphs:
-            text_content = para.text.strip()
-            if text_content and text_content.split('\n')[0] == translated_text.split('\n')[0]:
-                para.alignment = 0  # Left alignment
-            elif text_content in ["Disclaimer", "OCR/HTR"]:
-                continue  # Preserve original alignment
-            else:
-                para.alignment = 3  # Justified alignment
+        # Replace old paragraphs with the newly added ones
+        for old_para, new_para in paragraphs_to_add:
+            # Remove the old paragraph
+            p = old_para._element
+            p.getparent().remove(p)
+            # Add the new paragraph
+            doc.element.body.insert(doc.element.body.index(old_para._element), new_para._element)
         
         doc.save(output_docx_path)
         return output_docx_path
     except Exception as e:
         print(f"Error creating DOCX with translated text: {e}")
         exit(1)
-
+        
 def convert_docx_to_pdf(docx_path):
     try:
         docx_path = os.path.abspath(docx_path)
@@ -125,8 +208,11 @@ def main(args=None):
         os.makedirs(output_path, exist_ok=True)
 
         combined_text = merge_text_files(folder_path)
-        text_chunks = split_text(combined_text)
-        translated_text = translate_text(text_chunks)
+        # Step 1: Split and detect language
+        grouped_sentences, detected_languages = split_text(combined_text)
+        print(len(grouped_sentences))
+        # Step 2: Parallel translate
+        translated_text = parallel_process(grouped_sentences, detected_languages)
         output_docx_path = create_docx_with_translated_text(template_path, output_path, translated_text)
         pdf_path = convert_docx_to_pdf(output_docx_path)
         clean_up(output_docx_path)
