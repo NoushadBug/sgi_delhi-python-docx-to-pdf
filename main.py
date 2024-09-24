@@ -76,31 +76,31 @@ def translate_to_english(text, chunk_size=5000, max_workers=5):
     translated_text = ' '.join(translated_chunks)
     return translated_text
 
-def check_and_translate_non_english_content(text_content):
+def check_and_translate_non_english_content(text_content, max_workers=5):
     # Split the content using sentence-ending characters while preserving the delimiters
     sentences = re.split(SENTENCE_SPLIT_REGEX, text_content)
-    
+
     contains_non_english = False
     translated_text = ""
-    
-    for i, sentence in enumerate(sentences):
-        sentence = sentence.strip()
-        
-        # Skip empty or too short sentences
-        if len(sentence) <= 3:
-            continue
-        
-        # Detect if the sentence is predominantly English
-        if not is_english_text(sentence):
-            print(f"Non-English content detected in sentence {i+1}: {sentence}")
-            translated_sentence = translate_to_english(sentence)
-            contains_non_english = True
-        else:
-            translated_sentence = sentence
-        
-        # Append the translated sentence to the final translated text
-        translated_text += translated_sentence + " "
-    
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Prepare futures for language detection
+        language_futures = {executor.submit(is_english_text, sentence.strip()): sentence for sentence in sentences if len(sentence.strip()) > 3}
+
+        for future in as_completed(language_futures):
+            sentence = language_futures[future]
+            is_english = future.result()
+
+            if not is_english:  # Non-English content detected
+                # print(f"Non-English content detected: {sentence}")
+                translated_sentence = translate_to_english(sentence.strip())
+                contains_non_english = True
+            else:
+                translated_sentence = sentence.strip()
+
+            # Append the translated sentence to the final translated text
+            translated_text += translated_sentence + " "
+
     return contains_non_english, translated_text.strip()
 
 # Example usage within your main function
