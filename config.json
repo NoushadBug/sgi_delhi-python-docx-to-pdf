@@ -1,0 +1,27 @@
+{
+    "doc_structure": [
+      {
+        "type": "heading",
+        "text": "Disclaimer",
+        "fontSize": 16
+      },
+      {
+        "type": "normal",
+        "text": "Once upon a time, in a village nestled between rolling green hills and a crystal-clear river, there lived a wise old woman named Elara. She was known throughout the land for her vast knowledge and gentle spirit. Every morning, she ventured into the forest to gather herbs and berries, which she used to make remedies and potions that healed the sick and comforted the weary. The villagers often sought her counsel, and she welcomed each one with a warm smile and a listening ear. Elara believed that the best way to help others was to understand their stories, so she spent her days listening to the tales of joy and sorrow that people brought to her doorstep. In return, she offered advice, sometimes through a kind word, other times through a carefully crafted elixir. Elara's reputation grew, and soon people from neighboring villages began to visit her, seeking the wisdom that seemed to flow from her very being. Despite the increasing number of visitors, she remained humble and dedicated to her life's him on his journey. Together, they faced numerous challenges, navigating treacherous terrains and overcoming formidable obstacles.",
+        "fontSize": 14
+      },
+      {
+        "type": "pagebreak"
+      },
+      {
+        "type": "heading",
+        "text": "OCR/HTR",
+        "fontSize": 16
+      },
+      {
+        "type": "combinedText",
+        "fontSize": 14
+      }
+    ]
+  }
+  
