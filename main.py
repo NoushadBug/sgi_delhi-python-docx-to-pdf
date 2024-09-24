@@ -4,6 +4,8 @@ from docx import Document
 from deep_translator import GoogleTranslator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from langdetect import detect, DetectorFactory
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 DetectorFactory.seed = 0  # Ensure reproducible results
 
 def get_folder_path(args):
@@ -17,8 +19,8 @@ def get_folder_path(args):
         exit(1)
 
 def merge_text_files(folder_path):
+    combined_text = ""
     try:
-        combined_text = ""
         for file_name in os.listdir(folder_path):
             if file_name.endswith('.txt'):
                 file_path = os.path.join(folder_path, file_name)
@@ -28,9 +30,9 @@ def merge_text_files(folder_path):
                         # Extract the first line and the rest of the lines
                         first_line = lines[0].strip()
                         remaining_lines = ''.join(line.strip() for line in lines[1:])
-                        
+                        print(first_line)
                         # Combine the first line with the formatted remaining lines
-                        combined_text += f"{first_line}\n{remaining_lines}\n\n"
+                        combined_text += f"##LEFT##{first_line}##LEFT##\n{remaining_lines}\n\n"
         return combined_text.strip()
     except Exception as e:
         print(f"Error merging text files: {e}")
@@ -62,7 +64,7 @@ def split_text(text, max_character=5000):
     sentences = re.split(split_pattern, text)
     
     # Remove any empty strings from the list and strip whitespace
-    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
+    # sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
     
     grouped_sentences = []
     current_group = []
@@ -113,6 +115,8 @@ def batch_translate(groups, langs):
 
     for group, lang in zip(groups, langs):
         if lang != 'en':  # Only translate non-English text
+            # print(lang)
+            # print(group)
             translated = translator.translate(group)
             translated_chunks.append(translated)
         else:
@@ -148,19 +152,17 @@ def create_docx_with_translated_text(template_path, output_path, translated_text
                 for run in paragraph.runs:
                     if "{{combinedText}}" in run.text:
                         run.text = run.text.replace("{{combinedText}}", translated_text)
-        
-        # Handle <LEFT> and </LEFT> tags for alignment
-        paragraphs_to_add = []
-        
 
-        # Replace old paragraphs with the newly added ones
-        for old_para, new_para in paragraphs_to_add:
-            # Remove the old paragraph
-            p = old_para._element
-            p.getparent().remove(p)
-            # Add the new paragraph
-            doc.element.body.insert(doc.element.body.index(old_para._element), new_para._element)
-        
+        # Align text to the left when enclosed in ##LEFT##...##LEFT##
+        for paragraph in doc.paragraphs:
+            if '##LEFT##' in paragraph.text:
+                # Extract the text inside ##LEFT## tags and remove the tags
+                new_text = paragraph.text.replace('##LEFT##', '').strip()
+                paragraph.text = new_text  # Set the new text without the tags
+                
+                # # Set paragraph alignment to left
+                # paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
         doc.save(output_docx_path)
         return output_docx_path
     except Exception as e:
@@ -210,9 +212,10 @@ def main(args=None):
         combined_text = merge_text_files(folder_path)
         # Step 1: Split and detect language
         grouped_sentences, detected_languages = split_text(combined_text)
-        print(len(grouped_sentences))
+        print(f"Processing total: {len(grouped_sentences)} sentences")
         # Step 2: Parallel translate
         translated_text = parallel_process(grouped_sentences, detected_languages)
+        print(f"Translating process done..")
         output_docx_path = create_docx_with_translated_text(template_path, output_path, translated_text)
         pdf_path = convert_docx_to_pdf(output_docx_path)
         clean_up(output_docx_path)
