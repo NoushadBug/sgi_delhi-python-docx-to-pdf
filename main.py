@@ -81,27 +81,35 @@ def check_and_translate_non_english_content(text_content, max_workers=5):
     sentences = re.split(SENTENCE_SPLIT_REGEX, text_content)
 
     contains_non_english = False
-    translated_text = ""
+    translated_text = [None] * len(sentences)  # Initialize a list to store the translated sentences
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Prepare futures for language detection
-        language_futures = {executor.submit(is_english_text, sentence.strip()): sentence for sentence in sentences if len(sentence.strip()) > 3}
+        # Prepare futures for language detection with their original index
+        language_futures = {executor.submit(is_english_text, sentence): (i, sentence) for i, sentence in enumerate(sentences) if len(sentence.strip()) > 3}
 
         for future in as_completed(language_futures):
-            sentence = language_futures[future]
+            index, sentence = language_futures[future]
             is_english = future.result()
 
             if not is_english:  # Non-English content detected
-                # print(f"Non-English content detected: {sentence}")
-                translated_sentence = translate_to_english(sentence.strip())
+                translated_sentence = translate_to_english(sentence)
                 contains_non_english = True
             else:
-                translated_sentence = sentence.strip()
+                translated_sentence = sentence
 
-            # Append the translated sentence to the final translated text
-            translated_text += translated_sentence + " "
+            # Store the translated sentence in its original index
+            translated_text[index] = translated_sentence + " "
 
-    return contains_non_english, translated_text.strip()
+    # Properly join sentences, ensuring spaces between them and preserving punctuation
+    final_text = ''
+    for sentence in translated_text:
+        if sentence:  # Make sure to skip None values
+            final_text += sentence
+            # Add a space if the last character is not a punctuation mark
+            if not sentence[-1] in SENTENCE_ENDING_CHARACTERS:
+                final_text += ' '
+
+    return contains_non_english, final_text.strip()
 
 # Example usage within your main function
 def create_docx_from_structure(output_path, structure, text_files):
@@ -151,6 +159,7 @@ def create_docx_from_structure(output_path, structure, text_files):
                         # If non-English content is detected, add the translation
                         if contains_non_english:
                             add_paragraph(doc, "Translation", WD_ALIGN_PARAGRAPH.LEFT, item['fontSize'] + 2, bold=True)
+                            add_paragraph(doc, page_heading, WD_ALIGN_PARAGRAPH.LEFT, item['fontSize'] + 2, bold=True)
                             add_paragraph(doc, translated_text, WD_ALIGN_PARAGRAPH.JUSTIFY, item['fontSize'])
 
                         # Add a newline after each file's content
