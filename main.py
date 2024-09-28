@@ -111,7 +111,6 @@ def check_and_translate_non_english_content(text_content, max_workers=5):
 
     return contains_non_english, final_text.strip()
 
-# Example usage within your main function
 def create_docx_from_structure(output_path, structure, text_files):
     try:
         # Generate timestamp and output paths
@@ -131,6 +130,9 @@ def create_docx_from_structure(output_path, structure, text_files):
             run.bold = bold
             run.font.size = Pt(font_size)
             paragraph.alignment = alignment
+
+        # Accumulate all translated content to add at the end
+        translation_section = []
 
         # Process each item in the structure list
         for item in structure:
@@ -162,14 +164,23 @@ def create_docx_from_structure(output_path, structure, text_files):
                         # Justify the rest of the text
                         add_paragraph(doc, text_content, WD_ALIGN_PARAGRAPH.JUSTIFY, item['fontSize'])
 
-                        # If non-English content is detected, add the translation
+                        # If non-English content is detected, accumulate the translation
                         if contains_non_english:
-                            add_paragraph(doc, "Translation", WD_ALIGN_PARAGRAPH.LEFT, item['fontSize'] + 2, bold=True)
-                            add_paragraph(doc, page_heading, WD_ALIGN_PARAGRAPH.LEFT, item['fontSize'] + 2, bold=True)
-                            add_paragraph(doc, translated_text, WD_ALIGN_PARAGRAPH.JUSTIFY, item['fontSize'])
+                            translation_section.append({
+                                'heading': page_heading,
+                                'translated_text': translated_text,
+                                'font_size': item['fontSize']
+                            })
 
                         # Add a newline after each file's content
                         doc.add_paragraph()
+
+        # Add the translation section at the end of the document
+        if translation_section:
+            add_paragraph(doc, "Translation Section", WD_ALIGN_PARAGRAPH.CENTER, item['fontSize'] + 4, bold=True)
+            for section in translation_section:
+                add_paragraph(doc, section['heading'], WD_ALIGN_PARAGRAPH.LEFT, section['font_size'] + 2, bold=True)
+                add_paragraph(doc, section['translated_text'], WD_ALIGN_PARAGRAPH.JUSTIFY, section['font_size'])
 
         # Save the DOCX file
         doc.save(output_docx_path)
@@ -177,7 +188,6 @@ def create_docx_from_structure(output_path, structure, text_files):
     except Exception as e:
         print(f"Error creating DOCX: {e}")
         exit(1)
-
 
 def convert_docx_to_pdf(docx_path):
     try:
