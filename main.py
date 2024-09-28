@@ -146,7 +146,13 @@ def create_docx_from_structure(output_path, structure, text_files):
                     with open(text_file, 'r', encoding='utf-8') as f:
                         content = f.readlines()
                         page_heading = content[0].strip()  # First line (page heading)
+                        # Replace spaces with hyphens
+                        page_heading = page_heading.replace(" ", "-")
                         text_content = ''.join(content[1:])  # Remaining text
+
+                        # Remove leading newline characters if they exist
+                        if text_content.startswith('\n'):
+                            text_content = text_content.lstrip('\n')
 
                         # Check for non-English content and translate it immediately
                         contains_non_english, translated_text = check_and_translate_non_english_content(text_content)
