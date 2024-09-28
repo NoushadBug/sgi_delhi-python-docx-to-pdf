@@ -177,7 +177,7 @@ def create_docx_from_structure(output_path, structure, text_files):
 
         # Add the translation section at the end of the document
         if translation_section:
-            add_paragraph(doc, "Translation Section", WD_ALIGN_PARAGRAPH.CENTER, item['fontSize'] + 4, bold=True)
+            add_paragraph(doc, "Translation", WD_ALIGN_PARAGRAPH.CENTER, item['fontSize'] + 4, bold=True)
             for section in translation_section:
                 add_paragraph(doc, section['heading'], WD_ALIGN_PARAGRAPH.LEFT, section['font_size'] + 2, bold=True)
                 add_paragraph(doc, section['translated_text'], WD_ALIGN_PARAGRAPH.JUSTIFY, section['font_size'])

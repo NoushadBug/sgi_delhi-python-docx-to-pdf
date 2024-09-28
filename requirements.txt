@@ -2,3 +2,4 @@ python-docx
 pywin32
 langdetect
 deep-translator
+PyPDF2
