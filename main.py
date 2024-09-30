@@ -181,6 +181,7 @@ def create_docx_from_structure(output_path, structure, text_files):
             for section in translation_section:
                 add_paragraph(doc, section['heading'], WD_ALIGN_PARAGRAPH.LEFT, section['font_size'] + 2, bold=True)
                 add_paragraph(doc, section['translated_text'], WD_ALIGN_PARAGRAPH.JUSTIFY, section['font_size'])
+                add_paragraph(doc, "", WD_ALIGN_PARAGRAPH.JUSTIFY, section['font_size'])
 
         # Save the DOCX file
         doc.save(output_docx_path)
