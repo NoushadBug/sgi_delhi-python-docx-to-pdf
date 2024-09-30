@@ -1,4 +1,4 @@
-import os, sys, win32com.client, json, re
+import os, sys, win32com.client, json, re, subprocess
 from datetime import datetime
 from docx import Document
 from docx.shared import Pt
@@ -229,6 +229,7 @@ def load_json_config(config_file):
     with open(config_file, 'r') as file:
         return json.load(file)
 
+
 def main(args=None):
     folder_path = get_folder_path(args)
     output_path = './output/'
@@ -248,6 +249,13 @@ def main(args=None):
     # Convert the DOCX to PDF
     pdf_file = convert_docx_to_pdf(docx_file)
     print(f"PDF created at: {pdf_file}")
+
+    # Run pdf_merger.py to merge PDFs
+    try:
+        subprocess.run([sys.executable, 'pdf_merger.py', output_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred while merging PDFs: {e}")
+
 
 if __name__ == "__main__":
     main(sys.argv)
