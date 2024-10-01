@@ -1,4 +1,4 @@
-import os, sys, win32com.client, json, re, subprocess
+import os, sys, win32com.client, json, re, subprocess, chardet
 from datetime import datetime
 from docx import Document
 from docx.shared import Pt
@@ -145,11 +145,22 @@ def create_docx_from_structure(output_path, structure, text_files):
             elif item['type'] == 'combinedText':
                 # Insert the content from each text file
                 for text_file in text_files:
-                    with open(text_file, 'r', encoding='utf-8') as f:
+
+                    with open(text_file, 'rb') as f:
+                        raw_data = f.read()
+                        result = chardet.detect(raw_data)
+                        encoding = result['encoding']
+
+                    with open(text_file, 'r', encoding=encoding) as f:
                         content = f.readlines()
+                    
+                        # Remove the first line if it matches the unwanted text
+                        if content[0].strip() == "OCR/HTR":
+                            content = content[1:]  # Remove the first line
+                        
+                        # Proceed as before with the updated content list
                         page_heading = content[0].strip()  # First line (page heading)
-                        # Replace spaces with hyphens
-                        page_heading = page_heading.replace(" ", "-")
+                        # page_heading = page_heading.replace(" ", "-")
                         text_content = ''.join(content[1:])  # Remaining text
 
                         # Remove leading newline characters if they exist
@@ -252,7 +263,7 @@ def main(args=None):
 
     # Run pdf_merger.py to merge PDFs
     try:
-        subprocess.run([sys.executable, 'pdf_merger.py', output_path], check=True)
+        subprocess.run([sys.executable, 'pdf_merger.py', pdf_file], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Error occurred while merging PDFs: {e}")
 
