@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Installation Instructions</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script>
+        function copyToClipboard() {
+            const command = document.getElementById('command').innerText;
+            navigator.clipboard.writeText(command).then(() => {
+                alert("Command copied to clipboard!");
+            }).catch(err => {
+                console.error("Error copying text: ", err);
+            });
+        }
+    </script>
+</head>
+
+<body class="bg-gray-100 text-gray-800 p-6">
+    <div class="container mx-auto bg-white rounded-lg shadow-md p-8">
+        <h1 class="text-2xl font-bold mb-4">Python Installation Instructions</h1>
+        <p class="mb-4">Here are the instructions to ensure you have Python installed and run the script successfully:</p>
+
+        <h2 class="text-xl font-semibold mb-2">Steps to Check Python Installation</h2>
+        <ol class="list-decimal list-inside mb-4">
+            <li class="mb-2">Open your terminal/command prompt.</li>
+            <li class="mb-2">Type <code class="bg-gray-200 p-1 rounded">python</code> and hit enter.
+                <ul class="list-disc list-inside ml-4">
+                    <li>If Python is installed, you should see a message with the Python version.</li>
+                    <li>If no message appears, download Python 3.10.2 from <a class="text-blue-500 hover:underline" href="https://www.python.org/downloads/release/python-3102/" target="_blank">here</a>.</li>
+                </ul>
+            </li>
+            <li>Install Python if necessary.</li>
+        </ol>
+
+        <h2 class="text-xl font-semibold mb-2">One-Time Setup</h2>
+        <ul class="list-disc list-inside mb-4">
+            <li>Run the following command to install the necessary dependencies:
+                <div class="flex items-center bg-gray-200 p-2 rounded mt-1">
+                    <pre id="command" class="m-0">pip install -r requirements.txt</pre>
+                    <button onclick="copyToClipboard()" class="ml-4 bg-blue-500 text-white p-2 rounded">Copy</button>
+                </div>
+            </li>
+        </ul>
+        <p class="mb-4 font-semibold">MAKE sure that you're setting the Input and Output file directory before proceeding.</p>
+
+        <h2 class="text-xl font-semibold mb-2">Running the Script</h2>
+        <ul class="list-disc list-inside mb-4">
+            <li>Double click on the <code class="bg-gray-200 p-1 rounded">run_script.bat</code>, that's it.</li>
+        </ul>
+    </div>
+</body>
+
+</html>
