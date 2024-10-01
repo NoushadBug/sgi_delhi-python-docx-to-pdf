@@ -6,11 +6,10 @@ def merge_pdfs(directory, passed_pdf_path=None):
     try:
         # Get all PDF files in the directory
         pdf_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.lower().endswith('.pdf')]
-        print(len(pdf_files))
-        
+
         # Ensure there's exactly one PDF in the directory
-        if len(pdf_files) != 1:
-            print("The directory must contain exactly one PDF file.")
+        if len(pdf_files) > 1:
+            print("    ❌ The directory must contain at least one PDF file.")
             return
 
         # Add the passed PDF full path to the list, without moving it
@@ -33,7 +32,7 @@ def merge_pdfs(directory, passed_pdf_path=None):
         merger.write(output_file)
         merger.close()
 
-        print(f"All PDFs have been merged into: {output_file}")
+        print(f"    ✔️ PDF(s) successfully merged into: {output_file} \n")
 
     except IndexError:
         print("Error: Attempted to access a list index that does not exist.")
@@ -47,7 +46,7 @@ if __name__ == "__main__":
     else:
         passed_file_directory = None
 
-    input_directory = input("Please enter the directory containing the single PDF file: ")
+    input_directory = input("Please enter the directory containing not more than 1 PDF file: ")
 
     # Check if the provided directory is valid
     if not os.path.isdir(input_directory):

@@ -1,15 +1,13 @@
-import os, sys, win32com.client, json, re, subprocess, chardet
+import os, sys, json, re, subprocess, chardet
+from helper import *
+from translationHelper import *
 from datetime import datetime
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
-from deep_translator import GoogleTranslator
-from langdetect import detect, DetectorFactory
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from langdetect.lang_detect_exception import LangDetectException
 
-DetectorFactory.seed = 0  # Ensure reproducible results
 
 def set_default_font(doc, font_name="Noto Sans"):
     """Set the default font for the entire document."""
@@ -18,98 +16,6 @@ def set_default_font(doc, font_name="Noto Sans"):
     font.name = font_name
     # Handle the case where the font needs to be set specifically for East Asian languages
     font.element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
-
-
-# Define a list of sentence-ending characters for Urdu, Hindi, Gujarati, and other mentioned languages
-SENTENCE_ENDING_CHARACTERS = ['.', '!', '?', '۔', '؟', '।', '॥', '؛']
-
-# Combine the sentence-ending characters into a regex pattern for splitting the text
-SENTENCE_SPLIT_REGEX = r'(?<=[' + ''.join(re.escape(c) for c in SENTENCE_ENDING_CHARACTERS) + r'])\s+'
-
-def is_english_text(sentence):
-    # Filter the sentence to check for English letters and digits
-    english_chars = sum(1 for char in sentence if char.isascii() and char.isalnum())
-    total_chars = sum(1 for char in sentence if char.isalnum())
-    
-    # If most of the alphanumeric characters are ASCII, assume it's English
-    if total_chars == 0:
-        return True  # If no alphanumeric characters, treat as English (neutral).
-    
-    return english_chars / total_chars > 0.5  # More than 50% English characters.
-
-
-def translate_chunk(chunk):
-    translator = GoogleTranslator(source='auto', target='en')
-    return translator.translate(chunk.strip())
-
-def translate_to_english(text, chunk_size=5000, max_workers=5):
-    # Break text into chunks that are under the limit
-    chunks = []
-    current_chunk = []
-
-    current_length = 0
-    for sentence in text.split('.'):  # Split text by sentences to ensure coherent chunks
-        sentence_length = len(sentence) + 1  # Account for the period
-        if current_length + sentence_length <= chunk_size:
-            current_chunk.append(sentence)
-            current_length += sentence_length
-        else:
-            chunks.append('.'.join(current_chunk) + '.')
-            current_chunk = [sentence]
-            current_length = sentence_length
-
-    # Add the last chunk
-    if current_chunk:
-        chunks.append('.'.join(current_chunk) + '.')
-
-    # Use threading to translate chunks in parallel
-    translated_chunks = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all translation tasks
-        futures = {executor.submit(translate_chunk, chunk): chunk for chunk in chunks}
-
-        # Collect results as they complete
-        for future in as_completed(futures):
-            translated_chunks.append(future.result())
-
-    # Join all the translated chunks into the final translated text
-    translated_text = ' '.join(translated_chunks)
-    return translated_text
-
-def check_and_translate_non_english_content(text_content, max_workers=5):
-    # Split the content using sentence-ending characters while preserving the delimiters
-    sentences = re.split(SENTENCE_SPLIT_REGEX, text_content)
-
-    contains_non_english = False
-    translated_text = [None] * len(sentences)  # Initialize a list to store the translated sentences
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Prepare futures for language detection with their original index
-        language_futures = {executor.submit(is_english_text, sentence): (i, sentence) for i, sentence in enumerate(sentences) if len(sentence.strip()) > 3}
-
-        for future in as_completed(language_futures):
-            index, sentence = language_futures[future]
-            is_english = future.result()
-
-            if not is_english:  # Non-English content detected
-                translated_sentence = translate_to_english(sentence)
-                contains_non_english = True
-            else:
-                translated_sentence = sentence
-
-            # Store the translated sentence in its original index
-            translated_text[index] = translated_sentence + " "
-
-    # Properly join sentences, ensuring spaces between them and preserving punctuation
-    final_text = ''
-    for sentence in translated_text:
-        if sentence:  # Make sure to skip None values
-            final_text += sentence
-            # Add a space if the last character is not a punctuation mark
-            if not sentence[-1] in SENTENCE_ENDING_CHARACTERS:
-                final_text += ' '
-
-    return contains_non_english, final_text.strip()
 
 def create_docx_from_structure(output_path, structure, text_files):
     try:
@@ -198,75 +104,47 @@ def create_docx_from_structure(output_path, structure, text_files):
         doc.save(output_docx_path)
         return output_docx_path
     except Exception as e:
-        print(f"Error creating DOCX: {e}")
+        print(f"    ❌ Error creating DOCX: {e}")
         exit(1)
 
-def convert_docx_to_pdf(docx_path):
-    try:
-        docx_path = os.path.abspath(docx_path)
-        word = win32com.client.Dispatch("Word.Application")
-        word.Visible = False
-        doc = word.Documents.Open(docx_path)
-
-        pdf_path = docx_path.replace(".docx", ".pdf")
-        doc.SaveAs(pdf_path, FileFormat=17)  # 17 is the format code for PDF
-        doc.Close()
-        word.Quit()
-
-        # Delete the DOCX file after conversion
-        os.remove(docx_path)
-        return pdf_path
-    except Exception as e:
-        print(f"Error converting DOCX to PDF: {e}")
-        exit(1)
-
-def get_folder_path(args=None):
-    # Check if a folder path was passed as an argument
-    if args and len(args) > 1:
-        folder_path = args[1]  # Get the second argument (first is script name)
-    else:
-        # Ask for input if no argument provided
-        folder_path = input("Please enter the folder path for text files: ").strip()
-
-    # Validate the folder path
-    if not os.path.isdir(folder_path):
-        print(f"Invalid folder path: {folder_path}")
-        exit(1)
-    
-    return folder_path
-
-def load_json_config(config_file):
-    """Load JSON configuration from a file."""
-    with open(config_file, 'r') as file:
-        return json.load(file)
-
-
-def main(args=None):
+def run_script(args, config):
     folder_path = get_folder_path(args)
-    output_path = './output/'
+    output_path = config['output_folder_directory']
     os.makedirs(output_path, exist_ok=True)
+    text_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.txt')]
+    if not text_files:
+        print("No .txt files found in the folder.")
+        return
 
-    # Load the document structure from config.json
-    config = load_json_config('config.json')
-    doc_structure = config['doc_structure']
+    # Create DOCX, merge txts, and convert to PDF
+    pdf_file = convert_docx_to_pdf(create_docx_from_structure(output_path, config['doc_structure'], text_files))
+    print(f"    ✔️ PDF created at: {pdf_file}\n")
 
-    # Collect all text files from the folder
-    text_files = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if file.endswith('.txt')]
-
-    # Create DOCX from text files
-    docx_file = create_docx_from_structure(output_path, doc_structure, text_files)
-    print(f"DOCX created at: {docx_file}")
-
-    # Convert the DOCX to PDF
-    pdf_file = convert_docx_to_pdf(docx_file)
-    print(f"PDF created at: {pdf_file}")
-
-    # Run pdf_merger.py to merge PDFs
+    # Merge PDFs
     try:
         subprocess.run([sys.executable, 'pdf_merger.py', pdf_file], check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error occurred while merging PDFs: {e}")
+        print(f"    ❌ Error occurred while merging PDFs: {e}\n")
 
+def main(args=None):
+    config_path = 'config.json'
+    config = load_config(config_path)
+
+    while True:
+        user_choice = display_menu()
+        clear_terminal()
+        if user_choice == '1':
+            run_script(args, config)
+        elif user_choice == '2':
+            change_directory(config, config_path)
+        elif user_choice == '3':
+            change_directory(config, config_path, False)
+        elif user_choice == '4':
+            break
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")
+        
+        wait_for_keypress()
 
 if __name__ == "__main__":
     main(sys.argv)
