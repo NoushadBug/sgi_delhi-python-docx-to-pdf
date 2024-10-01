@@ -8,7 +8,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from langdetect.lang_detect_exception import LangDetectException
 
-
+SUCCESS_INDICATOR = "    ✔️ "
+ERROR_INDICATOR = "    ❌ "
 def set_default_font(doc, font_name="Noto Sans"):
     """Set the default font for the entire document."""
     style = doc.styles['Normal']
@@ -104,7 +105,7 @@ def create_docx_from_structure(output_path, structure, text_files):
         doc.save(output_docx_path)
         return output_docx_path
     except Exception as e:
-        print(f"    ❌ Error creating DOCX: {e}")
+        print(f"{ERROR_INDICATOR}Error creating DOCX: {e}")
         exit(1)
 
 def run_script(args, config):
@@ -118,13 +119,13 @@ def run_script(args, config):
 
     # Create DOCX, merge txts, and convert to PDF
     pdf_file = convert_docx_to_pdf(create_docx_from_structure(output_path, config['doc_structure'], text_files))
-    print(f"    ✔️ PDF created at: {pdf_file}\n")
+    print(f"PDF created at: {pdf_file}\n")
 
     # Merge PDFs
     try:
         subprocess.run([sys.executable, 'pdf_merger.py', pdf_file], check=True)
     except subprocess.CalledProcessError as e:
-        print(f"    ❌ Error occurred while merging PDFs: {e}\n")
+        print(f"{ERROR_INDICATOR}Error occurred while merging PDFs: {e}\n")
 
 def main(args=None):
     config_path = 'config.json'

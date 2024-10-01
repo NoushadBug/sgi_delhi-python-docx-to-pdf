@@ -2,6 +2,9 @@ import os
 import sys
 from PyPDF2 import PdfMerger
 
+SUCCESS_INDICATOR = "    ✔️ "
+ERROR_INDICATOR = "    ❌ "
+
 def merge_pdfs(directory, passed_pdf_path=None):
     try:
         # Get all PDF files in the directory
@@ -9,7 +12,7 @@ def merge_pdfs(directory, passed_pdf_path=None):
 
         # Ensure there's exactly one PDF in the directory
         if len(pdf_files) > 1:
-            print("    ❌ The directory must contain at least one PDF file.")
+            print("{ERROR_INDICATOR}The directory must contain at least one PDF file.")
             return
 
         # Add the passed PDF full path to the list, without moving it
@@ -32,7 +35,7 @@ def merge_pdfs(directory, passed_pdf_path=None):
         merger.write(output_file)
         merger.close()
 
-        print(f"    ✔️ PDF(s) successfully merged into: {output_file} \n")
+        print(f"{SUCCESS_INDICATOR}PDF(s) successfully merged into: {output_file} \n")
 
     except IndexError:
         print("Error: Attempted to access a list index that does not exist.")

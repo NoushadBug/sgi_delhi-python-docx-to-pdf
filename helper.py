@@ -5,6 +5,9 @@ if os.name == 'nt':
 else:
     import tty
     import termios
+    
+SUCCESS_INDICATOR = "    ✔️ "
+ERROR_INDICATOR = "    ❌ "
 
 # Function to capture a single key press without Enter
 def get_keypress():
@@ -39,9 +42,9 @@ def change_directory(config, config_path, isRoot=True):
         else:
             config['output_folder_directory'] = new_directory
         save_json_config(config_path, config)
-        print(f"     ✔️ {'Input' if isRoot else 'Output'} Directory updated to: {new_directory}")
+        print(f"{SUCCESS_INDICATOR}{'Input' if isRoot else 'Output'} Directory updated to: {new_directory}")
     except Exception as e:
-        print(f"     ❌ Error updating {'Input' if isRoot else 'Output'} Directory: {str(e)}")
+        print(f"{ERROR_INDICATOR}Error updating {'Input' if isRoot else 'Output'} Directory: {str(e)}")
 
 
 def display_menu():
@@ -82,7 +85,7 @@ def convert_docx_to_pdf(docx_path):
         os.remove(docx_path)
         return pdf_path
     except Exception as e:
-        print(f"    ❌ Error converting DOCX to PDF: {e}")
+        print(f"{ERROR_INDICATOR}Error converting DOCX to PDF: {e}")
         exit(1)
 
 def get_folder_path(args=None):
