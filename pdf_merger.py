@@ -49,10 +49,16 @@ if __name__ == "__main__":
     else:
         passed_file_directory = None
 
-    input_directory = input("Please enter the directory containing not more than 1 PDF file: ")
+    # Check if the input directory is provided as the second argument
+    if len(sys.argv) > 2:
+        input_directory = sys.argv[2]
+    else:
+        print("Please provide a directory containing not more than 1 PDF file as the second argument.")
+        sys.exit(1)
 
     # Check if the provided directory is valid
     if not os.path.isdir(input_directory):
         print("The provided directory is not valid.")
     else:
         merge_pdfs(input_directory, passed_file_directory)
+

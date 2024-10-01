@@ -109,23 +109,75 @@ def create_docx_from_structure(output_path, structure, text_files):
         exit(1)
 
 def run_script(args, config):
-    folder_path = get_folder_path(args)
+    # Get the root folder directory from the configuration
+    root_folder = config['root_folder_directory']
     output_path = config['output_folder_directory']
+    
+    print(f"Root folder directory: {root_folder}")
+    print(f"Output folder directory: {output_path}\n\n")
+    
     os.makedirs(output_path, exist_ok=True)
-    text_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.txt')]
-    if not text_files:
-        print("No .txt files found in the folder.")
-        return
 
-    # Create DOCX, merge txts, and convert to PDF
-    pdf_file = convert_docx_to_pdf(create_docx_from_structure(output_path, config['doc_structure'], text_files))
-    print(f"PDF created at: {pdf_file}\n")
+    # Iterate through all subfolders in the root directory
+    for subfolder in os.listdir(root_folder):
+        subfolder_path = os.path.join(root_folder, subfolder)
+        print(f"Checking subfolder: {subfolder_path}")
 
-    # Merge PDFs
-    try:
-        subprocess.run([sys.executable, 'pdf_merger.py', pdf_file], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"{ERROR_INDICATOR}Error occurred while merging PDFs: {e}\n")
+        # Check if it's a directory
+        if os.path.isdir(subfolder_path):
+            # Initialize the path for the OCR results folder
+            ocr_results_folder = None
+
+            # Look for any folder that ends with '_ocr_results'
+            for folder in os.listdir(subfolder_path):
+                folder_path = os.path.join(subfolder_path, folder)
+                if os.path.isdir(folder_path) and folder.endswith('_ocr_results'):
+                    ocr_results_folder = folder_path
+                    print(f"OCR results folder found: {ocr_results_folder}")
+                    break  # Stop searching once we find the first match
+
+            # Check if the OCR results folder was found
+            if ocr_results_folder:
+                # Get the base name of the OCR results folder (excluding "_ocr_results")
+                sibling_folder_name = ocr_results_folder.replace('_ocr_results', '')  # Remove "_ocr_results" from the folder name
+                sibling_folder = os.path.join(subfolder_path, sibling_folder_name)  # Construct sibling folder path
+                
+                print(f"Sibling folder determined: {sibling_folder}")
+
+                # Collect all .txt files from the OCR results folder
+                text_files = [os.path.join(ocr_results_folder, f) for f in os.listdir(ocr_results_folder) if f.endswith('.txt')]
+                
+                print(f"Found {len(text_files)} .txt files in {ocr_results_folder}.")
+                
+                # If no text files found, skip to the next subfolder
+                if not text_files:
+                    print(f"No .txt files found in {ocr_results_folder}. Skipping...\n")
+                    continue
+
+                # Create DOCX and convert to PDF
+                print(f"Creating DOCX from {len(text_files)} text files...")
+                docx_file = create_docx_from_structure(output_path, config['doc_structure'], text_files)
+                print(f"DOCX created at: {docx_file}")
+
+                print("Converting DOCX to PDF...")
+                pdf_file = convert_docx_to_pdf(docx_file)
+                print(f"PDF created at: {pdf_file}\n")
+
+                # Ensure the sibling folder exists
+                os.makedirs(sibling_folder, exist_ok=True)
+                print(f"Ensured sibling folder exists: {sibling_folder}")
+
+                # Merge PDFs into the sibling folder
+                try:
+                    print(f"Merging PDF into sibling folder: {sibling_folder}...")
+                    subprocess.run([sys.executable, 'pdf_merger.py', pdf_file, sibling_folder], check=True)
+                    print(f"PDF successfully merged into: {sibling_folder}\n")
+                except subprocess.CalledProcessError as e:
+                    print(f"{ERROR_INDICATOR} Error occurred while merging PDFs: {e}\n")
+            else:
+                print(f"No OCR results folder found for {subfolder}. Skipping...\n")
+        else:
+            print(f"{subfolder_path} is not a directory. Skipping...\n")
 
 def main(args=None):
     config_path = 'config.json'
