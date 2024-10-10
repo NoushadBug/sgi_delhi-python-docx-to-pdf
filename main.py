@@ -110,13 +110,17 @@ def create_docx_from_structure(output_path, structure, text_files):
 
 def run_script(args, config):
     # Get the root folder directory from the configuration
-    root_folder = config['root_folder_directory']
+    root_folder = config['input_folder_directory']
     output_path = config['output_folder_directory']
-    
+    copy_destination = config['copy_destination_directory']  # Folder to copy sibling folders to
+
     print(f"Root folder directory: {root_folder}")
     print(f"Output folder directory: {output_path}\n\n")
     
     os.makedirs(output_path, exist_ok=True)
+    os.makedirs(copy_destination, exist_ok=True)  # Ensure the copy destination exists
+
+    sibling_folders = []  # List to keep track of sibling folder paths
 
     # Iterate through all subfolders in the root directory
     for subfolder in os.listdir(root_folder):
@@ -172,12 +176,26 @@ def run_script(args, config):
                     print(f"Merging PDF into sibling folder: {sibling_folder}...")
                     subprocess.run([sys.executable, 'pdf_merger.py', pdf_file, sibling_folder], check=True)
                     print(f"PDF successfully merged into: {sibling_folder}\n")
+                    
+                    # Append sibling folder to the list for copying later
+                    sibling_folders.append(sibling_folder)
                 except subprocess.CalledProcessError as e:
                     print(f"{ERROR_INDICATOR} Error occurred while merging PDFs: {e}\n")
             else:
                 print(f"No OCR results folder found for {subfolder}. Skipping...\n")
         else:
             print(f"{subfolder_path} is not a directory. Skipping...\n")
+    
+    # Copy sibling folders to the copy destination
+    for sibling_folder in sibling_folders:
+        try:
+            copy_directory(sibling_folder, copy_destination)
+            print(f"Successfully copied {sibling_folder} to {copy_destination}.")
+        except Exception as e:
+            print(f"Error copying {sibling_folder} to {copy_destination}: {e}")
+
+    print(f"Completed copying sibling folders.")
+
 
 def main(args=None):
     config_path = 'config.json'
@@ -189,13 +207,15 @@ def main(args=None):
         if user_choice == '1':
             run_script(args, config)
         elif user_choice == '2':
-            change_directory(config, config_path)
+            change_directory(config, config_path, 'input_folder_directory')
         elif user_choice == '3':
-            change_directory(config, config_path, False)
+            change_directory(config, config_path, 'output_folder_directory')
         elif user_choice == '4':
+            change_directory(config, config_path, 'copy_destination_directory')
+        elif user_choice == '5':
             break
         else:
-            print("Invalid choice. Please enter 1, 2, or 3.")
+            print("Invalid choice. Please enter 1, 2, 3, 4 or 5.")
         
         wait_for_keypress()
 

@@ -34,17 +34,44 @@ def load_config(config_path):
 def clear_terminal():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def change_directory(config, config_path, isRoot=True):
+def copy_directory(src, dst):
+    # Extract the folder name from the source path
+    folder_name = os.path.basename(src)
+    dst_folder = os.path.join(dst, folder_name)
+
+    # Ensure the destination folder exists
+    os.makedirs(dst_folder, exist_ok=True)
+
+    # Iterate over all items in the source directory
+    for item in os.listdir(src):
+        src_item = os.path.join(src, item)
+        dst_item = os.path.join(dst_folder, item)
+
+        # Copy file
+        if os.path.isfile(src_item):
+            print(f"Copying file: {src_item} to {dst_item}")
+            with open(src_item, 'rb') as fsrc:
+                with open(dst_item, 'wb') as fdst:
+                    fdst.write(fsrc.read())
+
+        # Copy directory (create the subdirectory and copy contents)
+        elif os.path.isdir(src_item):
+            print(f"Copying directory: {src_item} to {dst_item}")
+            os.makedirs(dst_item, exist_ok=True)
+            copy_directory(src_item, dst_item)  # Recursive call for subdirectory
+
+def change_directory(config, config_path, key):
     try:
-        new_directory = input(f"Enter the new {'Input' if isRoot else 'Output'} directory path: ")
-        if isRoot:
-            config['root_folder_directory'] = new_directory
+        new_directory = input(f"Enter the new {key.replace('_', ' ')} path: ")
+        if key in config:  # Ensure key exists in config
+            config[key] = new_directory
+            print(f"Updating {key}: {config[key]}")
+            save_json_config(config_path, config)
+            print(f"{SUCCESS_INDICATOR} {key.replace('_', ' ').title()} updated to: {new_directory}")
         else:
-            config['output_folder_directory'] = new_directory
-        save_json_config(config_path, config)
-        print(f"{SUCCESS_INDICATOR}{'Input' if isRoot else 'Output'} Directory updated to: {new_directory}")
+            print(f"{ERROR_INDICATOR} Key '{key}' not found in the config.")
     except Exception as e:
-        print(f"{ERROR_INDICATOR}Error updating {'Input' if isRoot else 'Output'} Directory: {str(e)}")
+        print(f"{ERROR_INDICATOR} Error updating {key.replace('_', ' ').title()}: {str(e)}")
 
 
 def display_menu():
@@ -53,9 +80,10 @@ def display_menu():
     print("    #1. Run Script")
     print("    #2. Set Input Folder Directory")
     print("    #3. Set Output Folder Directory")
-    print("    #4. Exit")
+    print("    #4. Set Copy Destination Folder")  # New option added
+    print("    #5. Exit")
     
-    print("\nEnter your choice (1/2/3/4): ", end='', flush=True)
+    print("\nEnter your choice (1/2/3/4/5): ", end='', flush=True)
     return get_keypress()
 
 # Load JSON configuration

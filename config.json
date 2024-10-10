@@ -1,6 +1,7 @@
 {
-    "root_folder_directory": "C:\\Users\\Xiaomi\\Downloads\\SGI_New folder\\dummyFolder",
-    "output_folder_directory": "E:\\python\\sgi_delhi-docx-to-pdf\\output",
+    "input_folder_directory": "D:\\Post_Processing",
+    "output_folder_directory": "D:\\Post_Processing\\output",
+    "copy_destination_directory": "D:\\Combined-PDF",
     "doc_structure": [
         {
             "type": "heading",
